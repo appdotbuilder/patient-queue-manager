@@ -1,24 +1,56 @@
 
+import { db } from '../db';
+import { queueEntriesTable, doctorsTable, displayBoardEntriesTable } from '../db/schema';
 import { type CompletePatientInput, type QueueEntry } from '../schema';
+import { eq, and } from 'drizzle-orm';
 
 export const completePatient = async (input: CompletePatientInput): Promise<QueueEntry> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to mark a patient consultation as completed.
-    // It should:
-    // 1. Update the queue entry status to 'COMPLETED'
-    // 2. Set the completed_at timestamp
-    // 3. Remove the entry from the display board
-    // 4. Update doctor status to 'AVAILABLE'
-    return Promise.resolve({
-        id: input.queue_entry_id,
-        patient_id: 'PLACEHOLDER', // Placeholder patient ID
-        specialty: 'GENERAL_MEDICINE', // Placeholder specialty
-        queue_number: 1,
+  try {
+    // First, verify the queue entry exists and is assigned to the doctor
+    const existingEntries = await db.select()
+      .from(queueEntriesTable)
+      .where(
+        and(
+          eq(queueEntriesTable.id, input.queue_entry_id),
+          eq(queueEntriesTable.doctor_id, input.doctor_id)
+        )
+      )
+      .execute();
+
+    if (existingEntries.length === 0) {
+      throw new Error('Queue entry not found or not assigned to this doctor');
+    }
+
+    const existingEntry = existingEntries[0];
+
+    // Update the queue entry to completed status
+    const updatedEntries = await db.update(queueEntriesTable)
+      .set({
         status: 'COMPLETED',
-        doctor_id: input.doctor_id,
-        room_number: 'ROOM-1', // Placeholder room
-        created_at: new Date(),
-        called_at: new Date(),
         completed_at: new Date()
-    } as QueueEntry);
-}
+      })
+      .where(eq(queueEntriesTable.id, input.queue_entry_id))
+      .returning()
+      .execute();
+
+    const updatedEntry = updatedEntries[0];
+
+    // Remove from display board if present
+    await db.delete(displayBoardEntriesTable)
+      .where(eq(displayBoardEntriesTable.patient_id, existingEntry.patient_id))
+      .execute();
+
+    // Update doctor status to available
+    await db.update(doctorsTable)
+      .set({
+        status: 'AVAILABLE'
+      })
+      .where(eq(doctorsTable.id, input.doctor_id))
+      .execute();
+
+    return updatedEntry;
+  } catch (error) {
+    console.error('Complete patient failed:', error);
+    throw error;
+  }
+};

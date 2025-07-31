@@ -1,9 +1,17 @@
 
+import { db } from '../db';
+import { doctorsTable } from '../db/schema';
 import { type Doctor } from '../schema';
 
 export const getDoctors = async (): Promise<Doctor[]> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to get all doctors with their current status and room assignments.
-    // Useful for administrative purposes and doctor management.
-    return Promise.resolve([]);
-}
+  try {
+    const results = await db.select()
+      .from(doctorsTable)
+      .execute();
+
+    return results;
+  } catch (error) {
+    console.error('Get doctors failed:', error);
+    throw error;
+  }
+};

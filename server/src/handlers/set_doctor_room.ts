@@ -1,16 +1,27 @@
 
+import { db } from '../db';
+import { doctorsTable } from '../db/schema';
 import { type SetDoctorRoomInput, type Doctor } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const setDoctorRoom = async (input: SetDoctorRoomInput): Promise<Doctor> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to update a doctor's assigned room number.
-    // It should update the doctor's room and return the updated doctor information.
-    return Promise.resolve({
-        id: input.doctor_id,
-        name: 'Placeholder Doctor', // Placeholder name
-        specialty: 'GENERAL_MEDICINE', // Placeholder specialty
-        room_number: input.room_number,
-        status: 'AVAILABLE',
-        created_at: new Date()
-    } as Doctor);
-}
+  try {
+    // Update doctor's room number
+    const result = await db.update(doctorsTable)
+      .set({
+        room_number: input.room_number
+      })
+      .where(eq(doctorsTable.id, input.doctor_id))
+      .returning()
+      .execute();
+
+    if (result.length === 0) {
+      throw new Error(`Doctor with ID ${input.doctor_id} not found`);
+    }
+
+    return result[0];
+  } catch (error) {
+    console.error('Doctor room assignment failed:', error);
+    throw error;
+  }
+};

@@ -1,10 +1,20 @@
 
+import { db } from '../db';
+import { displayBoardEntriesTable } from '../db/schema';
 import { type DisplayBoardEntry } from '../schema';
+import { desc } from 'drizzle-orm';
 
 export const getDisplayBoard = async (): Promise<DisplayBoardEntry[]> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to get all current display board entries.
-    // This shows which patients are currently being called and in which rooms.
-    // Used by the public display board to show real-time announcements.
-    return Promise.resolve([]);
-}
+  try {
+    // Get all display board entries ordered by most recent first 
+    const results = await db.select()
+      .from(displayBoardEntriesTable)
+      .orderBy(desc(displayBoardEntriesTable.created_at))
+      .execute();
+
+    return results;
+  } catch (error) {
+    console.error('Failed to get display board entries:', error);
+    throw error;
+  }
+};

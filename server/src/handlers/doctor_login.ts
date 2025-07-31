@@ -1,20 +1,34 @@
 
+import { db } from '../db';
+import { doctorsTable } from '../db/schema';
 import { type DoctorLoginInput, type Doctor } from '../schema';
+import { eq } from 'drizzle-orm';
 
 export const doctorLogin = async (input: DoctorLoginInput): Promise<Doctor> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to log in a doctor and assign them to a room.
-    // It should:
-    // 1. Verify the doctor exists
-    // 2. Set their room number
-    // 3. Update their status to 'AVAILABLE'
-    // 4. Return the updated doctor information
-    return Promise.resolve({
-        id: input.doctor_id,
-        name: 'Placeholder Doctor', // Placeholder name
-        specialty: 'GENERAL_MEDICINE', // Placeholder specialty
+  try {
+    // First, verify the doctor exists
+    const existingDoctor = await db.select()
+      .from(doctorsTable)
+      .where(eq(doctorsTable.id, input.doctor_id))
+      .execute();
+
+    if (existingDoctor.length === 0) {
+      throw new Error(`Doctor with ID ${input.doctor_id} not found`);
+    }
+
+    // Update doctor's room number and status
+    const result = await db.update(doctorsTable)
+      .set({
         room_number: input.room_number,
-        status: 'AVAILABLE',
-        created_at: new Date()
-    } as Doctor);
-}
+        status: 'AVAILABLE'
+      })
+      .where(eq(doctorsTable.id, input.doctor_id))
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Doctor login failed:', error);
+    throw error;
+  }
+};

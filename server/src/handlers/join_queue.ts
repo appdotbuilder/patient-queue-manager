@@ -1,23 +1,40 @@
 
+import { db } from '../db';
+import { queueEntriesTable } from '../db/schema';
 import { type JoinQueueInput, type QueueEntry } from '../schema';
+import { eq, max } from 'drizzle-orm';
 
 export const joinQueue = async (input: JoinQueueInput): Promise<QueueEntry> => {
-    // This is a placeholder declaration! Real code should be implemented here.
-    // The goal of this handler is to add a patient to the queue for a specific specialty.
-    // It should:
-    // 1. Generate the next queue number for the specialty
-    // 2. Create a new queue entry with status 'WAITING'
-    // 3. Return the created queue entry with position information
-    return Promise.resolve({
-        id: 0, // Placeholder ID
+  try {
+    // Get the highest queue number for this specialty to generate the next number
+    const maxQueueResult = await db.select({ 
+      maxNumber: max(queueEntriesTable.queue_number) 
+    })
+      .from(queueEntriesTable)
+      .where(eq(queueEntriesTable.specialty, input.specialty))
+      .execute();
+
+    // Calculate next queue number (start from 1 if no entries exist)
+    const nextQueueNumber = (maxQueueResult[0]?.maxNumber || 0) + 1;
+
+    // Insert new queue entry
+    const result = await db.insert(queueEntriesTable)
+      .values({
         patient_id: input.patient_id,
         specialty: input.specialty,
-        queue_number: 1, // Placeholder queue number
+        queue_number: nextQueueNumber,
         status: 'WAITING',
         doctor_id: null,
         room_number: null,
-        created_at: new Date(),
         called_at: null,
         completed_at: null
-    } as QueueEntry);
-}
+      })
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Failed to join queue:', error);
+    throw error;
+  }
+};
